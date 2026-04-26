@@ -49,6 +49,7 @@
     .status-table { width: 100%; border-collapse: collapse; margin-top: 2rem; }
     .status-table th { text-align: left; color: var(--muted); font-size: 0.7rem; padding: 10px; border-bottom: 1px solid var(--border); }
     .status-table td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    @media (max-width: 700px) { section { padding: 4rem 1.5rem; } nav { padding: 1rem 1.5rem; } }
   </style>
 </head>
 <body>
@@ -57,10 +58,10 @@
   <a class="logo" href="#">Laxman.</a>
 </nav>
 
-<section id="hero" style="min-height: 70vh; display: flex; flex-direction: column; justify-content: center;">
+<section id="hero" style="min-height: 80vh; display: flex; flex-direction: column; justify-content: center;">
   <p class="section-label">Developer — Nepal</p>
   <h1>Bulk IPO <br><em>Result Checker</em></h1>
-  <p style="color:var(--muted); max-width: 500px; margin-top: 1rem;">Fast, multi-account allotment checking for the Nepal Stock Market.</p>
+  <p style="color:var(--muted); max-width: 500px; margin-top: 1rem;">Enter multiple 16-digit BOIDs to check allotment status instantly using the official CDSC portal.</p>
 </section>
 
 <section id="checker">
@@ -71,41 +72,60 @@
       <option value="">Fetching active companies...</option>
     </select>
 
-    <label style="font-size: 0.7rem; color: var(--accent); display: block; margin-bottom: 0.5rem;">ENTER 16-DIGIT BOIDs (ONE PER LINE)</label>
-    <textarea id="boidList" rows="8" placeholder="1301230000..."></textarea>
+    <label style="font-size: 0.7rem; color: var(--accent); display: block; margin-bottom: 0.5rem;">ENTER BOIDs (ONE PER LINE)</label>
+    <textarea id="boidList" rows="8" placeholder="1301230000...&#10;1304560000..."></textarea>
 
     <button class="btn" onclick="startBulkCheck()" id="checkBtn">Check Allotment Status</button>
     <div id="resultsArea"></div>
   </div>
 </section>
 
+<section id="about" style="border-top: 1px solid var(--border);">
+  <div class="section-label">02 — About</div>
+  <h2 style="font-family:'Playfair Display', serif;">A little about <em>me</em></h2>
+  <p style="color: var(--muted); max-width: 600px;">I'm Laxman, a developer based in Nepal. I built this tool to make checking IPO results faster for families and groups with multiple accounts.</p>
+</section>
+
+<footer>
+  <div style="padding: 2rem 2.5rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem; display: flex; justify-content: space-between;">
+    <span>© 2026 Laxman.</span>
+    <span>Built in Nepal 🇳🇵</span>
+  </div>
+</footer>
+
 <script>
-  // Use AllOrigins as a primary proxy
-  const PROXY = "https://api.allorigins.win/raw?url=";
+  // YOUR PERSONAL CLOUDFLARE WORKER BRIDGE
+  const MY_PROXY = "https://ipo-result.alaxman131.workers.dev/?url="; 
+  
   const API_URL = "https://iporesult.cdsc.com.np/api/details";
   const COMPANY_URL = "https://iporesult.cdsc.com.np/api/companyshare/featchCompanyName";
 
+  // Load companies on page load
   async function loadCompanies() {
     const select = document.getElementById('companySelect');
     try {
-      const response = await fetch(PROXY + encodeURIComponent(COMPANY_URL));
+      const response = await fetch(MY_PROXY + encodeURIComponent(COMPANY_URL));
       const data = await response.json();
       if(data.body) {
         select.innerHTML = data.body.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
       }
     } catch (e) {
-      select.innerHTML = '<option value="">Error. Refresh page?</option>';
+      console.error("Fetch Error:", e);
+      select.innerHTML = '<option value="">Error loading companies. Refresh?</option>';
     }
   }
   loadCompanies();
 
+  // Handle checking logic
   async function startBulkCheck() {
     const btn = document.getElementById('checkBtn');
-    const boids = document.getElementById('boidList').value.split('\n').map(b => b.trim()).filter(b => b.length === 16);
+    const boidInput = document.getElementById('boidList').value;
     const companyId = document.getElementById('companySelect').value;
     const resultsArea = document.getElementById('resultsArea');
 
-    if (!companyId || boids.length === 0) return alert("Select company and enter valid BOIDs.");
+    const boids = boidInput.split('\n').map(b => b.trim()).filter(b => b.length === 16);
+
+    if (!companyId || boids.length === 0) return alert("Select company and enter valid 16-digit BOIDs.");
 
     btn.disabled = true;
     btn.innerText = "Checking...";
@@ -113,7 +133,7 @@
 
     for (const boid of boids) {
       try {
-        const response = await fetch(PROXY + encodeURIComponent(API_URL), {
+        const response = await fetch(MY_PROXY + encodeURIComponent(API_URL), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ companyShareId: companyId, boid: boid })
@@ -124,14 +144,178 @@
         row.innerHTML = `<td>${boid}</td><td style="color:${color}; text-align:right;">${res.message}</td>`;
       } catch (err) {
         const row = document.getElementById('resTable').insertRow();
-        row.innerHTML = `<td>${boid}</td><td style="text-align:right; color:red;">Failed</td>`;
+        row.innerHTML = `<td>${boid}</td><td style="text-align:right; color:#ff6b6b;">Network Error</td>`;
       }
-      await new Promise(r => setTimeout(r, 800)); // Delay for stability
+      // 1-second delay to prevent rate-limiting
+      await new Promise(r => setTimeout(r, 1000)); 
     }
     btn.disabled = false;
     btn.innerText = "Check Allotment Status";
   }
 
+  // Navigation scroll effect
+  window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+  });
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Laxman — Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1e1e1e;
+      --text: #e8e4dc;
+      --muted: #666;
+      --accent: #c8a96e;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 999; opacity: 0.4;
+    }
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1.4rem 2.5rem; transition: all 0.4s;
+    }
+    nav.scrolled { border-bottom: 1px solid var(--border); backdrop-filter: blur(20px); background: rgba(10,10,10,0.85); }
+    .logo { font-family: 'Playfair Display', serif; font-size: 1.15rem; color: var(--accent); text-decoration: none; }
+    section { padding: 7rem 2.5rem; scroll-margin-top: 80px; }
+    .section-label { font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem; }
+    h1 { font-family: 'Playfair Display', serif; font-size: clamp(3rem, 8vw, 6rem); line-height: 1.1; }
+    .tool-card { background: var(--surface); padding: 2.5rem; border: 1px solid var(--border); max-width: 700px; margin: 0 auto; }
+    select, textarea { width: 100%; padding: 1rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); margin-bottom: 1.5rem; border-radius: 4px; font-family: inherit; }
+    .btn { display: inline-flex; padding: 0.85rem 1.8rem; background: var(--accent); color: #0a0a0a; text-transform: uppercase; font-weight: 600; font-size: 0.8rem; border: none; cursor: pointer; width: 100%; justify-content: center; transition: 0.3s; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status-table { width: 100%; border-collapse: collapse; margin-top: 2rem; }
+    .status-table th { text-align: left; color: var(--muted); font-size: 0.7rem; padding: 10px; border-bottom: 1px solid var(--border); }
+    .status-table td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    @media (max-width: 700px) { section { padding: 4rem 1.5rem; } nav { padding: 1rem 1.5rem; } }
+  </style>
+</head>
+<body>
+
+<nav id="navbar">
+  <a class="logo" href="#">Laxman.</a>
+</nav>
+
+<section id="hero" style="min-height: 80vh; display: flex; flex-direction: column; justify-content: center;">
+  <p class="section-label">Developer — Nepal</p>
+  <h1>Bulk IPO <br><em>Result Checker</em></h1>
+  <p style="color:var(--muted); max-width: 500px; margin-top: 1rem;">Enter multiple 16-digit BOIDs to check allotment status instantly using the official CDSC portal.</p>
+</section>
+
+<section id="checker">
+  <div class="section-label">01 — The Tool</div>
+  <div class="tool-card">
+    <label style="font-size: 0.7rem; color: var(--accent); display: block; margin-bottom: 0.5rem;">SELECT COMPANY</label>
+    <select id="companySelect">
+      <option value="">Fetching active companies...</option>
+    </select>
+
+    <label style="font-size: 0.7rem; color: var(--accent); display: block; margin-bottom: 0.5rem;">ENTER BOIDs (ONE PER LINE)</label>
+    <textarea id="boidList" rows="8" placeholder="1301230000...&#10;1304560000..."></textarea>
+
+    <button class="btn" onclick="startBulkCheck()" id="checkBtn">Check Allotment Status</button>
+    <div id="resultsArea"></div>
+  </div>
+</section>
+
+<section id="about" style="border-top: 1px solid var(--border);">
+  <div class="section-label">02 — About</div>
+  <h2 style="font-family:'Playfair Display', serif;">A little about <em>me</em></h2>
+  <p style="color: var(--muted); max-width: 600px;">I'm Laxman, a developer based in Nepal. I built this tool to make checking IPO results faster for families and groups with multiple accounts.</p>
+</section>
+
+<footer>
+  <div style="padding: 2rem 2.5rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem; display: flex; justify-content: space-between;">
+    <span>© 2026 Laxman.</span>
+    <span>Built in Nepal 🇳🇵</span>
+  </div>
+</footer>
+
+<script>
+  // YOUR PERSONAL CLOUDFLARE WORKER BRIDGE
+  const MY_PROXY = "https://ipo-result.alaxman131.workers.dev/?url="; 
+  
+  const API_URL = "https://iporesult.cdsc.com.np/api/details";
+  const COMPANY_URL = "https://iporesult.cdsc.com.np/api/companyshare/featchCompanyName";
+
+  // Load companies on page load
+  async function loadCompanies() {
+    const select = document.getElementById('companySelect');
+    try {
+      const response = await fetch(MY_PROXY + encodeURIComponent(COMPANY_URL));
+      const data = await response.json();
+      if(data.body) {
+        select.innerHTML = data.body.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      }
+    } catch (e) {
+      console.error("Fetch Error:", e);
+      select.innerHTML = '<option value="">Error loading companies. Refresh?</option>';
+    }
+  }
+  loadCompanies();
+
+  // Handle checking logic
+  async function startBulkCheck() {
+    const btn = document.getElementById('checkBtn');
+    const boidInput = document.getElementById('boidList').value;
+    const companyId = document.getElementById('companySelect').value;
+    const resultsArea = document.getElementById('resultsArea');
+
+    const boids = boidInput.split('\n').map(b => b.trim()).filter(b => b.length === 16);
+
+    if (!companyId || boids.length === 0) return alert("Select company and enter valid 16-digit BOIDs.");
+
+    btn.disabled = true;
+    btn.innerText = "Checking...";
+    resultsArea.innerHTML = `<table class="status-table" id="resTable"><tr><th>BOID</th><th>STATUS</th></tr></table>`;
+
+    for (const boid of boids) {
+      try {
+        const response = await fetch(MY_PROXY + encodeURIComponent(API_URL), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyShareId: companyId, boid: boid })
+        });
+        const res = await response.json();
+        const row = document.getElementById('resTable').insertRow();
+        const color = res.success ? "#7eb8a4" : "#e8e4dc";
+        row.innerHTML = `<td>${boid}</td><td style="color:${color}; text-align:right;">${res.message}</td>`;
+      } catch (err) {
+        const row = document.getElementById('resTable').insertRow();
+        row.innerHTML = `<td>${boid}</td><td style="text-align:right; color:#ff6b6b;">Network Error</td>`;
+      }
+      // 1-second delay to prevent rate-limiting
+      await new Promise(r => setTimeout(r, 1000)); 
+    }
+    btn.disabled = false;
+    btn.innerText = "Check Allotment Status";
+  }
+
+  // Navigation scroll effect
   window.addEventListener('scroll', () => {
     document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
   });
